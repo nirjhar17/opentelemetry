@@ -1,0 +1,60 @@
+##Install Jegar operator
+##Install Red Hat build of OpenTelemetry Operator
+##create tracing system namespace
+##jaeger pod and otel pod must be in the same namespace
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel
+  namespace: tracing-system
+spec:
+  mode: deployment
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+
+    processors:
+      batch:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 50
+        spike_limit_percentage: 30
+
+    extensions:
+      zpages:
+        endpoint: "0.0.0.0:55679"
+      memory_ballast:
+        size_mib: 683
+      health_check: 
+      pprof:
+
+    exporters:
+      debug:
+      otlp:
+        endpoint: jaeger-all-in-one-inmemory-collector.tracing-system.svc.cluster.local:4317
+        tls:
+          insecure: true
+      logging:
+        verbosity: detailed
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        resource_to_telemetry_conversion:
+          enabled: true
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [debug, otlp]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [logging]
